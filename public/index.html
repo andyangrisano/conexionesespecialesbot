@@ -132,15 +132,15 @@
   const physicalRule = physical ? `Discapacidad física: ${physical}. Considera adaptaciones razonables (tiempos/espacios) y sugiere actividades seguras e inclusivas.` : ``;
   const sportRule = sport ? `Deporte del usuario: ${sport}. Relaciona ideas de conversación/actividad con ${sport}.` : ``;
 
-  const userContext =
-`Contexto del usuario:
-- ID: ${rowId || 'N/D'}
-- Nombre: ${(firstName || 'N/D')} ${(lastName || '').trim()}
-- Rol: ${role || 'N/D'}
-- Hobbies: ${hobbies || 'N/D'}
-- Discapacidad intelectual: ${intellectual || 'N/D'}
-- Discapacidad física: ${physical || 'N/D'}
-- Deporte: ${sport || 'N/D'}`;
+  //const userContext =
+//`Contexto del usuario:
+//- ID: ${rowId || 'N/D'}
+//- Nombre: ${(firstName || 'N/D')} ${(lastName || '').trim()}
+//- Rol: ${role || 'N/D'}
+//- Hobbies: ${hobbies || 'N/D'}
+//- Discapacidad intelectual: ${intellectual || 'N/D'}
+//- Discapacidad física: ${physical || 'N/D'}
+//- Deporte: ${sport || 'N/D'}`;
 
   const systemPrompt = [
     baseRules,
