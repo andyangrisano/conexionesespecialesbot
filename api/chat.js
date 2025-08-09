@@ -1,4 +1,4 @@
-// Vercel Serverless Function: /api/chat
+// /api/chat.js — Vercel Serverless Function
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -8,14 +8,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'messages (array) required' });
     }
 
-    // ✅ Force mini
     const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
-    // (optional) trim history to last 10 turns to save tokens
-    const MAX_MESSAGES = 21; // 1 system + 10 pairs
-    if (messages.length > MAX_MESSAGES) {
-      const sys = messages[0];
-      messages.splice(0, messages.length, sys, ...messages.slice(- (MAX_MESSAGES - 1)));
+    // Límite de historial para cuidar costos
+    const MAX_MESSAGES = 21; // 1 system + 10 pares
+    let msgs = messages;
+    if (msgs.length > MAX_MESSAGES) {
+      const sys = msgs[0];
+      const tail = msgs.slice(- (MAX_MESSAGES - 1));
+      msgs = [sys, ...tail];
     }
 
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -25,10 +26,10 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: MODEL,               // ✅ always mini
-        temperature: 0.6,           // cheaper/more consistent
-        max_tokens: 200,            // cap reply size
-        messages
+        model: MODEL,
+        temperature: 0.6,
+        max_tokens: 220, // respuestas concisas
+        messages: msgs
       })
     });
 
@@ -40,7 +41,7 @@ export default async function handler(req, res) {
     const data = await r.json();
     const reply = data?.choices?.[0]?.message?.content ?? '';
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ reply, model: MODEL }); // (debug) returns model used
+    return res.status(200).json({ reply, model: MODEL });
   } catch (e) {
     return res.status(500).json({ error: e?.message || 'Server error' });
   }
