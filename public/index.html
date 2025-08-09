@@ -1,34 +1,29 @@
 <script>
-  // =======================
-  // LECTURA DE PARÁMETROS
-  // =======================
+  // ====== Read params (supports your lowercase keys + old variants) ======
   const params = new URLSearchParams(location.search);
 
-  // Devuelve el primer valor no vacío entre posibles claves
   function getParam(...keys) {
     for (const k of keys) {
       const v = params.get(k);
-      if (v !== null && v !== '') return v; // URLSearchParams ya decodifica
+      if (v !== null && v !== '') return v; // already decoded by URLSearchParams
     }
     return '';
   }
 
-  // Claves aceptadas (seguras y "raras" de Glide)
-  const name            = (getParam('name', 'Name') || '').trim();
-  const roleRaw         = (getParam('role', 'Role') || '').trim().toLowerCase();
-  const userId          = (getParam('rowId', 'RowId', 'RowID', 'Row ID', 'Row Id') || '').trim();
-  const intellectualDesc= (getParam('intellectual','Disability/Intellectual','Disability%2FIntellectual') || '').trim();
-  const physicalDesc    = (getParam('physical','Disability/Physical','Disability%2FPhysical') || '').trim();
-  const sport           = (getParam('sport', 'deporte') || '').trim();
+  // Your keys first (lowercase), then old fallbacks
+  const userId         = (getParam('userId', 'Row ID', 'RowID', 'Row Id', 'RowId') || '').trim();
+  const name           = (getParam('name', 'Name', 'First Name', 'FirstName') || '').trim();
+  const roleRaw        = (getParam('role', 'Role') || '').trim().toLowerCase();
+  const intellectualDesc = (getParam('intellectual', 'Disability/Intellectual', 'Disability%2FIntellectual') || '').trim();
+  const physicalDesc     = (getParam('physical', 'Disability/Physical', 'Disability%2FPhysical') || '').trim();
+  const sport            = (getParam('sport', 'deporte') || '').trim();
 
-  // Normaliza rol a español
+  // Normalize role to Spanish if it comes in English
   const role = roleRaw === 'athlete' ? 'atleta'
-             : roleRaw === 'volunteer' ? 'voluntario'
-             : roleRaw;
+            : roleRaw === 'volunteer' ? 'voluntario'
+            : roleRaw; // if already 'atleta'/'voluntario', it stays
 
-  // =======================
-  // PROMPT DEL SISTEMA
-  // =======================
+  // ====== System prompt (includes all user context on every request) ======
   const baseRules =
 `Eres TAVIA, el asistente de Conexiones Especiales.
 - Sé amable, claro y breve.
@@ -41,11 +36,11 @@
       : `Si no conoces el rol, pide amablemente que lo indiquen (atleta o voluntario).`;
 
   const intellectualRules = intellectualDesc
-    ? `Discapacidad intelectual específica: ${intellectualDesc}. Ajusta la comunicación: palabras simples, 1 instrucción por vez, ejemplos del día a día y repite lo esencial.`
+    ? `Discapacidad intelectual específica: ${intellectualDesc}. Ajusta tu comunicación: palabras simples, 1 instrucción por vez, ejemplos del día a día y repite lo esencial.`
     : ``;
 
   const physicalRules = physicalDesc
-    ? `Discapacidad física específica: ${physicalDesc}. Considera adaptaciones necesarias (tiempos/espacios), sugiere actividades seguras y celebra el esfuerzo.`
+    ? `Discapacidad física específica: ${physicalDesc}. Considera adaptaciones necesarias (tiempos/espacios), sugiere actividades seguras e inclusivas y celebra el esfuerzo.`
     : ``;
 
   const sportRules = sport
@@ -70,9 +65,7 @@ ${sportRules ? '- ' + sportRules : ''}
 
 ${userContext}`.trim();
 
-  // =======================
-  // UI BÁSICA
-  // =======================
+  // ====== UI refs ======
   const log = document.getElementById('log');
   const f = document.getElementById('f');
   const inp = document.getElementById('inp');
@@ -88,20 +81,16 @@ ${userContext}`.trim();
     log.appendChild(row);
     row.scrollIntoView({behavior:'smooth', block:'end'});
   }
-
   function setDisabled(v){ if(inp) inp.disabled = v; if(sendBtn) sendBtn.disabled = v; }
 
-  // =======================
-  // CONVERSACIÓN
-  // =======================
+  // ====== Conversation ======
   const messages = [{ role:'system', content: systemPrompt }];
 
-  // Saludo inicial
+  // Welcome message
   addRow(`¡Hola${name ? ', ' + name : ''}! Soy TAVIA. ¿En qué puedo ayudarte hoy?`, 'bot');
 
-  // Mantener histórico corto para ahorrar tokens
   function trimHistory(){
-    const MAX_MESSAGES = 21; // 1 system + 10 pares
+    const MAX_MESSAGES = 21; // 1 system + 10 pairs
     if (messages.length > MAX_MESSAGES){
       const sys = messages[0];
       const tail = messages.slice(- (MAX_MESSAGES - 1));
@@ -112,14 +101,12 @@ ${userContext}`.trim();
   async function ask(){
     setDisabled(true);
     trimHistory();
-
     try{
       const res = await fetch('/api/chat', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({
           messages,
-          // Metadatos para tu backend/analítica si luego los usas
           user: { userId, name, role, intellectualDesc, physicalDesc, sport }
         })
       });
@@ -134,7 +121,6 @@ ${userContext}`.trim();
     }
   }
 
-  // Envío del mensaje
   if (f) {
     f.addEventListener('submit', (e)=>{
       e.preventDefault();
@@ -147,20 +133,14 @@ ${userContext}`.trim();
     });
   }
 
-  // =======================
-  // DEBUG OPCIONAL (?debug=1)
-  // =======================
+  // ====== Optional quick debug: add &debug=1 to URL to see values in chat ======
   if ((params.get('debug') || '') === '1') {
-    addRow(
-`[DEBUG]
+    addRow(`[DEBUG]
+userId=${userId}
 name=${name}
 role=${role}
-rowId=${userId}
 intellectual=${intellectualDesc}
 physical=${physicalDesc}
 sport=${sport}`, 'bot');
   }
 </script>
-
-
-
