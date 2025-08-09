@@ -19,13 +19,6 @@
   .title{font-weight:700;font-size:15px}
   .subtitle{font-size:12px;color:var(--muted);margin-top:1px}
 
-  /* Info panel */
-  .info{
-    max-width:720px; margin:8px auto 0; padding:8px 12px;
-    border:1px solid #e5e7eb; border-radius:10px; font-size:13px; color:#334155; background:#fff;
-  }
-  .info b{color:#0f172a}
-
   /* Chat area */
   .wrap{max-width:720px;margin:0 auto; padding:6px 10px 64px}
   #log{display:flex;flex-direction:column;gap:8px}
@@ -60,9 +53,6 @@
   </div>
 </div>
 
-<!-- Info panel (verificación de datos que llegan) -->
-<div class="info" id="infopanel"></div>
-
 <!-- Chat stream -->
 <div class="wrap">
   <div id="log"></div>
@@ -87,60 +77,45 @@
     return '';
   }
 
-  // Acepta claves "seguras" y variantes comunes de Glide
   const firstName = (getParam('firstName','First Name','name','Name') || '').trim();
   const lastName  = (getParam('lastName','Last Name','surname','Surname') || '').trim();
-  const roleRaw   = (getParam('role','Role') || '').trim().toLowerCase(); // atleta | voluntario | athlete | volunteer
+  const roleRaw   = (getParam('role','Role') || '').trim().toLowerCase();
   const hobbies   = (getParam('hobbies','Hobbies') || '').trim();
   const intellectual = (getParam('intellectual','Disability/Intellectual','Disability%2FIntellectual') || '').trim();
   const physical     = (getParam('physical','Disability/Physical','Disability%2FPhysical') || '').trim();
   const sport        = (getParam('sport','deporte','Sport') || '').trim();
   const rowId        = (getParam('rowId','Row ID','RowID','Row Id') || '').trim();
 
-  // Normaliza rol a ES
   const role = roleRaw === 'athlete' ? 'atleta'
              : roleRaw === 'volunteer' ? 'voluntario'
              : roleRaw;
 
-  // ========= Panel de verificación =========
-  function val(v){ return v ? v : 'Sin info'; }
-  const infopanel = document.getElementById('infopanel');
-  infopanel.innerHTML = `
-    <div><b>Nombre:</b> ${val(firstName)} ${val(lastName !== 'Sin info' ? lastName : '')}</div>
-    <div><b>Rol:</b> ${val(role)}</div>
-    <div><b>Hobbies:</b> ${val(hobbies)}</div>
-    <div><b>Discapacidad intelectual:</b> ${val(intellectual)}</div>
-    <div><b>Discapacidad física:</b> ${val(physical)}</div>
-    <div><b>Deporte:</b> ${val(sport)}</div>
-    <div><b>Row ID:</b> ${val(rowId)}</div>
-  `;
-
-  // ========= Prompt del sistema con TODO el contexto =========
+  // ========= Prompt del sistema =========
   const baseRules =
 `Eres TAVIA, el asistente virtual de Conexiones Especiales.
 - Sé amable, claro y breve, con un tono positivo.
 - Evita consejos médicos o legales; sugiere consultar a un adulto responsable cuando aplique.`;
 
   const roleRules = role === 'atleta'
-    ? `Estás conversando con un atleta. Usa lenguaje sencillo, positivo y concreto. Propón pasos cortos y celebra avances.`
+    ? `Estás conversando con un atleta. Usa lenguaje sencillo, positivo y concreto.`
     : role === 'voluntario'
-      ? `Estás conversando con un voluntario. Ofrece sugerencias prácticas y respetuosas para acompañar y motivar, y propuestas de interacción.`
+      ? `Estás conversando con un voluntario. Ofrece sugerencias prácticas y respetuosas para acompañar y motivar.`
       : `Si no conoces el rol, pide amablemente que lo indiquen (atleta o voluntario).`;
 
-  const hobbiesRule = hobbies ? `Hobbies del usuario: ${hobbies}. Conecta ejemplos y sugerencias con estos intereses.` : ``;
-  const intellectualRule = intellectual ? `Discapacidad intelectual: ${intellectual}. Adapta el lenguaje (palabras simples, 1 instrucción por vez, ejemplos del día a día, repetir lo esencial).` : ``;
-  const physicalRule = physical ? `Discapacidad física: ${physical}. Considera adaptaciones razonables (tiempos/espacios) y sugiere actividades seguras e inclusivas.` : ``;
-  const sportRule = sport ? `Deporte del usuario: ${sport}. Relaciona ideas de conversación/actividad con ${sport}.` : ``;
+  const hobbiesRule = hobbies ? `Hobbies del usuario: ${hobbies}.` : ``;
+  const intellectualRule = intellectual ? `Discapacidad intelectual: ${intellectual}.` : ``;
+  const physicalRule = physical ? `Discapacidad física: ${physical}.` : ``;
+  const sportRule = sport ? `Deporte del usuario: ${sport}.` : ``;
 
-  //const userContext =
-//`Contexto del usuario:
-//- ID: ${rowId || 'N/D'}
-//- Nombre: ${(firstName || 'N/D')} ${(lastName || '').trim()}
-//- Rol: ${role || 'N/D'}
-//- Hobbies: ${hobbies || 'N/D'}
-//- Discapacidad intelectual: ${intellectual || 'N/D'}
-//- Discapacidad física: ${physical || 'N/D'}
-//- Deporte: ${sport || 'N/D'}`;
+  const userContext =
+`Contexto del usuario:
+- ID: ${rowId || 'N/D'}
+- Nombre: ${(firstName || 'N/D')} ${(lastName || '').trim()}
+- Rol: ${role || 'N/D'}
+- Hobbies: ${hobbies || 'N/D'}
+- Discapacidad intelectual: ${intellectual || 'N/D'}
+- Discapacidad física: ${physical || 'N/D'}
+- Deporte: ${sport || 'N/D'}`;
 
   const systemPrompt = [
     baseRules,
@@ -168,10 +143,9 @@
     row.appendChild(bubble);
     log.appendChild(row);
     row.scrollIntoView({behavior:'smooth', block:'end'});
-    return row; // por si queremos manipular luego
+    return row;
   }
 
-  // Burbuja "escribiendo…"
   let typingRow = null;
   function showTyping(){
     typingRow = document.createElement('div');
@@ -196,13 +170,11 @@
   // ========= Conversación =========
   const messages = [{ role:'system', content: systemPrompt }];
 
-  // Mensaje de bienvenida (pulido)
   const saludo = `¡Hola${firstName ? ', ' + firstName : ''}! Soy TAVIA, tu amigo virtual de inteligencia artificial. ¿Cómo puedo ayudarte hoy?`;
   addRow(saludo, 'bot');
 
-  // Mantener histórico corto
   function trimHistory(){
-    const MAX_MESSAGES = 21; // 1 system + 10 pares
+    const MAX_MESSAGES = 21;
     if (messages.length > MAX_MESSAGES){
       const sys = messages[0];
       const tail = messages.slice(- (MAX_MESSAGES - 1));
@@ -221,7 +193,6 @@
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({
           messages,
-          // Meta por si luego registras analítica
           user: { rowId, firstName, lastName, role, hobbies, intellectual, physical, sport }
         })
       });
@@ -248,3 +219,4 @@
     ask();
   });
 </script>
+
