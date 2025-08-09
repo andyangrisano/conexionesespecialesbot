@@ -1,0 +1,73 @@
+<!doctype html>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conexiones Chat</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background:#fff; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 16px; }
+  #header { font-weight: 600; margin-bottom: 8px; }
+  #log { display: flex; flex-direction: column; gap: 8px; }
+  .bubble { padding: 10px 12px; border-radius: 12px; max-width: 90%; line-height: 1.3; }
+  .me { align-self: flex-end; background: #f0f0f0; }
+  .bot { align-self: flex-start; background: #ffe5e5; }
+  form { display: flex; gap: 8px; margin-top: 10px; }
+  input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 10px; }
+  button { padding: 10px 14px; border-radius: 10px; border: none; background: #e11d48; color: white; }
+</style>
+<div class="wrap">
+  <div id="header"></div>
+  <div id="log"></div>
+  <form id="f" autocomplete="off">
+    <input id="inp" placeholder="Escribe aquí…" />
+    <button>Enviar</button>
+  </form>
+</div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const name = params.get('name') || 'Usuario';
+  const role = params.get('role') || 'volunteer';
+  const userId = params.get('userId') || 'anon';
+  document.getElementById('header').textContent = `Chat de ${name} (${role})`;
+
+  const messages = [{
+    role: 'system',
+    content: `Eres un asistente amable y claro para Conexiones Especiales.
+- Si el usuario es "athlete", usa lenguaje simple, positivo y concreto.
+- Evita consejos médicos/legales; sugiere consultar a un adulto responsable cuando aplique.
+- Sé breve, empático y respetuoso.`
+  }];
+
+  const log = document.getElementById('log');
+  const f = document.getElementById('f');
+  const inp = document.getElementById('inp');
+
+  function addBubble(text, who) {
+    const div = document.createElement('div');
+    div.className = 'bubble ' + (who === 'me' ? 'me' : 'bot');
+    div.textContent = text;
+    log.appendChild(div);
+    div.scrollIntoView({behavior: 'smooth', block: 'end'});
+  }
+
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = (inp.value || '').trim();
+    if (!q) return;
+    inp.value = '';
+    addBubble(q, 'me');
+    messages.push({ role: 'user', content: q });
+
+    try {
+      const r = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, user: { userId, name, role } })
+      });
+      const data = await r.json();
+      const reply = data?.reply || (data?.error ? `Error: ${data.error}` : 'Sin respuesta.');
+      addBubble(reply, 'bot');
+      messages.push({ role: 'assistant', content: reply });
+    } catch {
+      addBubble('Error de conexión. Intenta de nuevo.', 'bot');
+    }
+  });
+</script>
