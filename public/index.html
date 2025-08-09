@@ -1,73 +1,34 @@
-<!doctype html>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TAVIA – Conexiones Especiales</title>
-<style>
-  :root{
-    --brand:#e11d48; --bg:#fff; --bot:#ffe5e8; --me:#f4f4f5; --text:#0f172a; --muted:#64748b;
-    --radius:12px;
-  }
-  *{box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:var(--bg);color:var(--text)}
-  /* Top bar */
-  .bar{
-    position:sticky; top:0; z-index:20;
-    display:flex; align-items:center; gap:10px;
-    padding:8px 12px; border-bottom:1px solid #f1f5f9; background:#fff;
-  }
-  .logo{width:26px;height:26px;object-fit:contain}
-  .title{font-weight:700;font-size:15px}
-  .subtitle{font-size:12px;color:var(--muted);margin-top:1px}
-  /* Chat area */
-  .wrap{max-width:720px;margin:0 auto; padding:6px 10px 64px}
-  #log{display:flex;flex-direction:column;gap:8px}
-  .row{display:flex}
-  .bubble{padding:8px 10px;border-radius:var(--radius);max-width:90%;line-height:1.32;font-size:14px;white-space:pre-wrap;word-wrap:break-word}
-  .me{justify-content:flex-end}.me .bubble{background:var(--me);border-bottom-right-radius:6px}
-  .bot{justify-content:flex-start}.bot .bubble{background:var(--bot);border-bottom-left-radius:6px}
-  /* Composer (input) fixed bottom */
-  form{
-    position:fixed; left:0; right:0; bottom:0; background:#fff;
-    border-top:1px solid #e5e7eb; padding:8px;
-  }
-  .inner{max-width:720px;margin:0 auto;display:flex;gap:8px}
-  input{flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:10px;outline:none;font-size:14px}
-  button{padding:0 14px;border-radius:10px;border:none;background:var(--brand);color:#fff;font-weight:600;height:38px}
-</style>
-
-<!-- Fixed header -->
-<div class="bar">
-  <img class="logo" src="/tavia-logo.png" alt="TAVIA" onerror="this.style.display='none'">
-  <div>
-    <div class="title">TAVIA</div>
-    <div class="subtitle">Conexiones Especiales</div>
-  </div>
-</div>
-
-<!-- Chat stream -->
-<div class="wrap">
-  <div id="log"></div>
-</div>
-
-<!-- Input at bottom -->
-<form id="f" autocomplete="off">
-  <div class="inner">
-    <input id="inp" placeholder="Escribe aquí…" />
-    <button id="sendBtn">Enviar</button>
-  </div>
-</form>
-
 <script>
-  // ====== Parámetros desde Glide ======
+  // =======================
+  // LECTURA DE PARÁMETROS
+  // =======================
   const params = new URLSearchParams(location.search);
-  const name = (params.get('Name') || '').trim();
-  const role = (params.get('Role') || '').trim().toLowerCase(); // "atleta" | "voluntario"
-  const userId = (params.get('Row ID') || '').trim();
 
-  const intellectualDesc = (params.get('Disability/Intellectual') || '').trim();
-  const physicalDesc     = (params.get('Disability/Physical') || '').trim();
-  const sport             = (params.get('deporte') || '').trim();
+  // Devuelve el primer valor no vacío entre posibles claves
+  function getParam(...keys) {
+    for (const k of keys) {
+      const v = params.get(k);
+      if (v !== null && v !== '') return v; // URLSearchParams ya decodifica
+    }
+    return '';
+  }
 
-  // ====== Reglas por perfil/discapacidad/deporte ======
+  // Claves aceptadas (seguras y "raras" de Glide)
+  const name            = (getParam('name', 'Name') || '').trim();
+  const roleRaw         = (getParam('role', 'Role') || '').trim().toLowerCase();
+  const userId          = (getParam('rowId', 'RowId', 'RowID', 'Row ID', 'Row Id') || '').trim();
+  const intellectualDesc= (getParam('intellectual','Disability/Intellectual','Disability%2FIntellectual') || '').trim();
+  const physicalDesc    = (getParam('physical','Disability/Physical','Disability%2FPhysical') || '').trim();
+  const sport           = (getParam('sport', 'deporte') || '').trim();
+
+  // Normaliza rol a español
+  const role = roleRaw === 'athlete' ? 'atleta'
+             : roleRaw === 'volunteer' ? 'voluntario'
+             : roleRaw;
+
+  // =======================
+  // PROMPT DEL SISTEMA
+  // =======================
   const baseRules =
 `Eres TAVIA, el asistente de Conexiones Especiales.
 - Sé amable, claro y breve.
@@ -75,21 +36,22 @@
 
   const roleRules = role === 'atleta'
     ? `Hablas con un atleta. Usa lenguaje sencillo, positivo y concreto. Propón pasos cortos y celebra avances.`
-    : `Hablas con un voluntario. Ofrece sugerencias prácticas y respetuosas para acompañar y motivar.`;
+    : role === 'voluntario'
+      ? `Hablas con un voluntario. Ofrece sugerencias prácticas y respetuosas para acompañar y motivar.`
+      : `Si no conoces el rol, pide amablemente que lo indiquen (atleta o voluntario).`;
 
   const intellectualRules = intellectualDesc
-    ? `Discapacidad intelectual específica: ${intellectualDesc}. Ajusta tu comunicación considerando esta condición.`
+    ? `Discapacidad intelectual específica: ${intellectualDesc}. Ajusta la comunicación: palabras simples, 1 instrucción por vez, ejemplos del día a día y repite lo esencial.`
     : ``;
 
   const physicalRules = physicalDesc
-    ? `Discapacidad física específica: ${physicalDesc}. Considera adaptaciones necesarias y fomenta la inclusión.`
+    ? `Discapacidad física específica: ${physicalDesc}. Considera adaptaciones necesarias (tiempos/espacios), sugiere actividades seguras y celebra el esfuerzo.`
     : ``;
 
   const sportRules = sport
-    ? `Deporte del usuario: ${sport}. Relaciona ejemplos y motivaciones con este deporte.`
+    ? `Deporte del usuario: ${sport}. Relaciona ejemplos, motivaciones e ideas de conversación/actividad con ${sport}.`
     : ``;
 
-  // Contexto del usuario que se envía al modelo en cada request
   const userContext =
 `Contexto del usuario:
 - ID: ${userId || 'desconocido'}
@@ -108,7 +70,9 @@ ${sportRules ? '- ' + sportRules : ''}
 
 ${userContext}`.trim();
 
-  // ====== UI helpers ======
+  // =======================
+  // UI BÁSICA
+  // =======================
   const log = document.getElementById('log');
   const f = document.getElementById('f');
   const inp = document.getElementById('inp');
@@ -124,13 +88,18 @@ ${userContext}`.trim();
     log.appendChild(row);
     row.scrollIntoView({behavior:'smooth', block:'end'});
   }
-  function setDisabled(v){ inp.disabled = v; sendBtn.disabled = v; }
 
+  function setDisabled(v){ if(inp) inp.disabled = v; if(sendBtn) sendBtn.disabled = v; }
+
+  // =======================
+  // CONVERSACIÓN
+  // =======================
   const messages = [{ role:'system', content: systemPrompt }];
 
   // Saludo inicial
   addRow(`¡Hola${name ? ', ' + name : ''}! Soy TAVIA. ¿En qué puedo ayudarte hoy?`, 'bot');
 
+  // Mantener histórico corto para ahorrar tokens
   function trimHistory(){
     const MAX_MESSAGES = 21; // 1 system + 10 pares
     if (messages.length > MAX_MESSAGES){
@@ -150,6 +119,7 @@ ${userContext}`.trim();
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({
           messages,
+          // Metadatos para tu backend/analítica si luego los usas
           user: { userId, name, role, intellectualDesc, physicalDesc, sport }
         })
       });
@@ -160,19 +130,37 @@ ${userContext}`.trim();
     }catch(e){
       addRow('Error de conexión. Intenta de nuevo.', 'bot');
     }finally{
-      setDisabled(false); inp.focus();
+      setDisabled(false); if(inp) inp.focus();
     }
   }
 
-  f.addEventListener('submit', (e)=>{
-    e.preventDefault();
-    const q = (inp.value || '').trim();
-    if (!q) return;
-    inp.value = '';
-    addRow(q, 'me');
-    messages.push({ role:'user', content:q });
-    ask();
-  });
+  // Envío del mensaje
+  if (f) {
+    f.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const q = (inp?.value || '').trim();
+      if (!q) return;
+      if (inp) inp.value = '';
+      addRow(q, 'me');
+      messages.push({ role:'user', content:q });
+      ask();
+    });
+  }
+
+  // =======================
+  // DEBUG OPCIONAL (?debug=1)
+  // =======================
+  if ((params.get('debug') || '') === '1') {
+    addRow(
+`[DEBUG]
+name=${name}
+role=${role}
+rowId=${userId}
+intellectual=${intellectualDesc}
+physical=${physicalDesc}
+sport=${sport}`, 'bot');
+  }
 </script>
+
 
 
