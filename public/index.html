@@ -77,6 +77,7 @@
     return '';
   }
 
+  // Datos del usuario que chatea
   const firstName = (getParam('firstName','First Name','name','Name') || '').trim();
   const lastName  = (getParam('lastName','Last Name','surname','Surname') || '').trim();
   const roleRaw   = (getParam('role','Role') || '').trim().toLowerCase();
@@ -90,6 +91,16 @@
              : roleRaw === 'volunteer' ? 'voluntario'
              : roleRaw;
 
+  // ======== Info PRIVADA del atleta asignado (solo si el usuario es voluntario) ========
+  // Espera recibir estos parámetros desde Glide cuando haya una pareja activa.
+  const aName        = (getParam('athleteName','Athlete Name','athlete_first','athleteFirst','aName') || '').trim();
+  const aHobbies     = (getParam('athleteHobbies','Athlete Hobbies','aHobbies') || '').trim();
+  const aIntellectual= (getParam('athleteIntellectual','Athlete Intellectual','aIntellectual') || '').trim();
+  const aPhysical    = (getParam('athletePhysical','Athlete Physical','aPhysical') || '').trim();
+  const aSport       = (getParam('athleteSport','Athlete Sport','aSport') || '').trim();
+
+  const hasAthleteCtx = role === 'voluntario' && (aName || aHobbies || aIntellectual || aPhysical || aSport);
+
   // ========= Prompt del sistema =========
   const baseRules =
 `Eres TAVIA, el asistente virtual de Conexiones Especiales.
@@ -102,30 +113,53 @@
       ? `Estás conversando con un voluntario. Ofrece sugerencias prácticas y respetuosas para acompañar y motivar.`
       : `Si no conoces el rol, pide amablemente que lo indiquen (atleta o voluntario).`;
 
+  // Reglas de privacidad cuando hay información del atleta (NO revelar)
+  const privacyRules = hasAthleteCtx ? `
+INSTRUCCIONES DE PRIVACIDAD (OBLIGATORIAS):
+- Tienes acceso a información PRIVADA del atleta emparejado con el voluntario para adaptar mejor tus sugerencias.
+- NUNCA reveles, menciones ni insinúes diagnósticos, discapacidades o datos de salud del atleta.
+- Si el voluntario pregunta directamente por diagnósticos o condiciones, responde: 
+  "No puedo compartir información médica o diagnósticos por privacidad. Si tienes inquietudes, hablemos de estrategias generales o consulta al coordinador/encargado."
+- Usa la información privada solo para ajustar recomendaciones de forma genérica (por ejemplo, sugerencias de comunicación, organización o seguridad), sin nombrar la condición ni detalles clínicos.` : ``;
+
+  // Contexto visible del usuario que escribe (esto NO expone info privada del atleta)
   const hobbiesRule = hobbies ? `Hobbies del usuario: ${hobbies}.` : ``;
-  const intellectualRule = intellectual ? `Discapacidad intelectual: ${intellectual}.` : ``;
-  const physicalRule = physical ? `Discapacidad física: ${physical}.` : ``;
+  const intellectualRule = intellectual ? `Discapacidad intelectual (del usuario): ${intellectual}.` : ``;
+  const physicalRule = physical ? `Discapacidad física (del usuario): ${physical}.` : ``;
   const sportRule = sport ? `Deporte del usuario: ${sport}.` : ``;
 
   const userContext =
-`Contexto del usuario:
+`Contexto del usuario que escribe:
 - ID: ${rowId || 'N/D'}
 - Nombre: ${(firstName || 'N/D')} ${(lastName || '').trim()}
 - Rol: ${role || 'N/D'}
 - Hobbies: ${hobbies || 'N/D'}
-- Discapacidad intelectual: ${intellectual || 'N/D'}
-- Discapacidad física: ${physical || 'N/D'}
-- Deporte: ${sport || 'N/D'}`;
+- Discapacidad intelectual (usuario): ${intellectual || 'N/D'}
+- Discapacidad física (usuario): ${physical || 'N/D'}
+- Deporte (usuario): ${sport || 'N/D'}`;
+
+  // Contexto PRIVADO del atleta (solo para el modelo; JAMÁS se muestra/expone)
+  const privateAthleteContext = hasAthleteCtx ? `
+[PRIVADO PARA RAZONAMIENTO, NO DIVULGAR]
+Atleta asignado a este voluntario:
+- Nombre: ${aName || 'N/D'}
+- Hobbies: ${aHobbies || 'N/D'}
+- Deporte: ${aSport || 'N/D'}
+- Discapacidad intelectual (si existe): ${aIntellectual || 'N/D'}
+- Discapacidad física (si existe): ${aPhysical || 'N/D'}
+Usa estos datos para adaptar sugerencias sin mencionar ninguna discapacidad ni detalle médico.` : ``;
 
   const systemPrompt = [
     baseRules,
     roleRules,
+    privacyRules,
     hobbiesRule && ('- ' + hobbiesRule),
     intellectualRule && ('- ' + intellectualRule),
     physicalRule && ('- ' + physicalRule),
     sportRule && ('- ' + sportRule),
     '',
-    userContext
+    userContext,
+    privateAthleteContext
   ].filter(Boolean).join('\n');
 
   // ========= UI helpers =========
@@ -193,7 +227,8 @@
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({
           messages,
-          user: { rowId, firstName, lastName, role, hobbies, intellectual, physical, sport }
+          // Mandamos metadatos mínimos; la info privada ya va en el systemPrompt
+          user: { rowId, firstName, lastName, role, hobbies, sport, hasAthleteCtx }
         })
       });
       const data = await res.json();
@@ -219,4 +254,3 @@
     ask();
   });
 </script>
-
