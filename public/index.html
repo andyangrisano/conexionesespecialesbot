@@ -102,10 +102,13 @@
   const hasAthleteCtx = role === 'voluntario' && (aName || aHobbies || aIntellectual || aPhysical || aSport);
 
   // ========= Prompt del sistema =========
-  const baseRules =
+const baseRules =
 `Eres TAVIA, el asistente virtual de Conexiones Especiales.
 - Sé amable, claro y breve, con un tono positivo.
-- Evita consejos médicos o legales; sugiere consultar a un adulto responsable cuando aplique.`;
+- Evita consejos médicos o legales; sugiere consultar a un adulto responsable cuando aplique.
+- Cuando sugieras mensajes para que el usuario los envíe a su compañero, recuerda aclarar siempre que deben ser mensajes largos, pensados y con detalle, ya que solo se escriben unas 2 veces por semana.
+- No uses asteriscos ni caracteres especiales para dar formato al texto (negritas, etc.), ya que no se muestran correctamente.`;
+
 
   const roleRules = role === 'atleta'
     ? `Estás conversando con un atleta. Usa lenguaje sencillo, positivo y concreto.`
